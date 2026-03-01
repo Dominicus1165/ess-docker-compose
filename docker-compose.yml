@@ -82,9 +82,13 @@ services:
     image: oci.element.io/element-admin:latest
     container_name: matrix-element-admin
     restart: unless-stopped
+    environment:
+      SERVER_NAME: "${MATRIX_DOMAIN}"
+      OIDC_CLIENT_ID: "01ADMN00000000000000000000"
+      OIDC_ISSUER: "https://${AUTH_DOMAIN}/"
     # Port published to host for multi-machine deployment
     ports:
-      - "8091:80"  # Map container port 80 to host port 8091
+      - "8091:8080"  # element-admin listens on 8080 (changed from 80 in recent versions)
     networks:
       - matrix-network
     depends_on:

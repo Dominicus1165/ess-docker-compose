@@ -17,6 +17,8 @@ matrix.example.test:443 {
     tls internal
 
     # Well-known client endpoint
+    # IMPORTANT: The respond body must stay on a single line. If you edit this file manually
+    # and your editor wraps the JSON, Caddy will refuse to start with "invalid control character".
     @wk path /.well-known/matrix/client
     handle @wk {
         header Content-Type application/json
@@ -237,6 +239,7 @@ element.example.test:443 {
     tls internal
 
     # Serve config.json with proper settings
+    # IMPORTANT: respond body must stay on a single line — see well-known note above.
     @cfg path /config.json
     handle @cfg {
         header Content-Type application/json
@@ -257,7 +260,7 @@ admin.example.test:443 {
     tls internal
 
     handle {
-        reverse_proxy element-admin:80
+        reverse_proxy element-admin:8080
     }
 }
 

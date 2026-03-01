@@ -1194,7 +1194,7 @@ ${ADMIN_DOMAIN}:443 {
     tls internal
 
     handle {
-        reverse_proxy element-admin:80
+        reverse_proxy element-admin:8080
     }
 }
 EOF
