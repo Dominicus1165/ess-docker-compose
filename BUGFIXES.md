@@ -252,9 +252,9 @@ Claims templates render to empty strings when using Authelia as the upstream pro
 
 ### Root Cause
 Authelia provides different claims than expected. Testing revealed:
-- ❌ `{{ user.name }}` - Not provided by Authelia
-- ✅ `{{ user.preferred_username }}` - Works (contains username)
-- ✅ `{{ user.email }}` - Works
+- `{{ user.name }}` — not provided by Authelia
+- `{{ user.preferred_username }}` — works (contains username)
+- `{{ user.email }}` — works
 
 ### Solution
 Use `preferred_username` for localpart and displayname:
@@ -402,45 +402,36 @@ head -2 .env
 # If postgres/data is OLDER than .env, you have a mismatch!
 ```
 
-### Solution 1: Clean Slate (Recommended for Testing)
+### Solution 1: Clean Slate (Recommended)
 ```bash
 # Stop all services
-docker compose -f docker-compose.local.yml --profile authelia down
+docker compose down
 
 # Delete all data directories
 sudo rm -rf postgres/data synapse/data mas/data mas/certs caddy/data caddy/config
 
 # Re-run deployment
-./deploy.sh
+./quickstart.sh   # or ./deploy.sh
 ```
 
-### Solution 2: Manual Password Update (For Preserving Data)
+### Solution 2: Manual Password Update (Preserves Data)
 ```bash
 # Get the new password from .env
 source .env
-echo $POSTGRES_PASSWORD
 
 # Connect to PostgreSQL
-docker compose -f docker-compose.local.yml exec postgres psql -U synapse
+docker compose exec postgres psql -U synapse
 
 # Update the password
 ALTER USER synapse WITH PASSWORD 'new_password_from_env';
 \q
 
 # Restart all services
-docker compose -f docker-compose.local.yml --profile authelia restart
+docker compose restart
 ```
 
 ### Prevention
-The deploy script now includes a **pre-flight data directory check** that:
-1. Detects existing data directories before deployment
-2. Warns about potential password/config mismatches
-3. Offers three options:
-   - **Clean slate**: Delete all data and start fresh (recommended for testing)
-   - **Keep data**: Continue with existing data (may cause errors)
-   - **Abort**: Exit and manually backup/clean data
-
-This check runs automatically when you execute `./deploy.sh`.
+Both `quickstart.sh` and `deploy.sh` detect existing data directories and warn before proceeding. `quickstart.sh` explicitly wipes `postgres/data` when the user confirms, preventing the mismatch.
 
 ### Why This Happens
 - Docker volumes and bind mounts persist even after `docker compose down`
@@ -450,10 +441,10 @@ This check runs automatically when you execute `./deploy.sh`.
 
 ### Impact on All Deployment Variants
 This issue affects:
-- ✅ Local deployment (fixed with data directory check)
-- ✅ Production deployment (fixed with data directory check)
-- ✅ With Authelia (affected)
-- ✅ Without Authelia (affected)
+- Local deployment (fixed with data directory check)
+- Production deployment (fixed with data directory check)
+- With Authelia (affected)
+- Without Authelia (affected)
 
 All deployment modes now include the pre-flight check to prevent this issue.
 
@@ -563,10 +554,10 @@ This allows Synapse to:
 
 ### Impact on All Deployment Variants
 This issue affects:
-- ✅ Local deployment (fixed with IPv6 hosts entries and Synapse CA config)
-- ✅ Production deployment (would need same fixes - IPv6 handled by real DNS, CA certs handled by Let's Encrypt)
-- ✅ With Authelia (affected - Synapse needs to reach MAS)
-- ✅ Without Authelia (affected - Synapse still needs to reach MAS)
+- Local deployment (fixed with IPv6 hosts entries and Synapse CA config)
+- Production deployment (would need same fixes - IPv6 handled by real DNS, CA certs handled by Let's Encrypt)
+- With Authelia (affected - Synapse needs to reach MAS)
+- Without Authelia (affected - Synapse still needs to reach MAS)
 
 ### Why This Happens
 1. **Local Development Environment**: Uses self-signed certificates requiring explicit trust
@@ -631,59 +622,6 @@ When making changes to the stack, follow this checklist to avoid common issues:
 
 ---
 
-## Testing Checklist
-
-After deployment, verify each component:
-
-### 1. Basic Connectivity
-```bash
-# Test all HTTPS endpoints
-curl -I https://matrix.example.test
-curl -I https://element.example.test
-curl -I https://auth.example.test
-curl -I https://authelia.example.test
-
-# All should return HTTP 200 or appropriate redirect
-```
-
-### 2. OIDC Discovery
-```bash
-curl https://auth.example.test/.well-known/openid-configuration | jq
-# Should return valid OIDC discovery document
-```
-
-### 3. MAS Assets
-```bash
-curl -I https://auth.example.test/assets/shared-CVCHz34K.css
-# Should return HTTP 200
-```
-
-### 4. Matrix Well-Known
-```bash
-curl https://matrix.example.test/.well-known/matrix/client | jq
-# Should return homeserver and authentication issuer
-```
-
-### 5. Full Authentication Flow
-1. Navigate to Element: `https://element.example.test`
-2. Click "Sign In"
-3. Verify redirect to MAS: `https://auth.example.test`
-4. Verify redirect to Authelia: `https://authelia.example.test`
-5. Log in with credentials
-6. Complete 2FA setup
-7. Verify redirect back to Element
-8. Verify successful login
-
-### 6. Database Verification
-```bash
-# Check MAS provider configuration
-docker compose exec postgres psql -U synapse -d mas -c \
-  "SELECT upstream_oauth_provider_id, fetch_userinfo, claims_imports FROM upstream_oauth_providers;"
-
-# Verify fetch_userinfo is 't' (true)
-# Verify claims_imports uses preferred_username
-```
-
 ---
 
 ## Common Pitfalls
@@ -724,55 +662,30 @@ docker compose exec postgres psql -U synapse -d mas -c \
 
 ## Security Advisories
 
-### Synapse v1.147.1 — CVE-2026-24044
+### CVE-2025-49090 — Synapse room version default
 
-Blocks federation requests using a known-compromised signing key. Pull and redeploy promptly:
+Synapse versions before 1.130.0 default to room version 10, which has a known vulnerability. This stack sets the default to room version 12 in `homeserver.yaml`:
 
-```bash
-docker compose pull synapse && docker compose up -d synapse
-# Verify: docker compose exec synapse synapse_homeserver --version
+```yaml
+default_room_version: "12"
 ```
 
-The compose file uses `latest`, so this is the only action needed.
+This is applied automatically by `deploy.sh` and `quickstart.sh`. If you have an existing `homeserver.yaml` generated before this fix, add the line manually and restart Synapse.
 
----
+### Updating images
 
-## Version-Specific Notes
+The compose file uses `latest` for all images. To apply any security update:
 
-### MAS v1.5.0
-- Confirmed working with all fixes applied
-- Assets must be explicitly enabled in listener resources
-- `fetch_userinfo` defaults to `false`
-
-### Authelia v4.39.13
-- Rejects public suffix list domains for cookies
-- Provides `preferred_username` claim, not `name`
-- Requires exact redirect URI matches
-- `jwt_secret` is deprecated, use `identity_validation.reset_password.jwt_secret`
-
-### Synapse (latest)
-- MSC3861 (OAuth delegation) is marked as experimental
-- Works reliably with MAS when properly configured
+```bash
+docker compose pull
+docker compose up -d
+```
 
 ---
 
 ## Additional Resources
 
 - [Public Suffix List](https://publicsuffix.org/)
-- [OIDC Core Specification](https://openid.net/specs/openid-connect-core-1_0.html)
 - [MAS Configuration Reference](https://element-hq.github.io/matrix-authentication-service/)
 - [Authelia Configuration](https://www.authelia.com/configuration/)
-
----
-
-## Contributing to This Document
-
-If you encounter additional issues not covered here:
-1. Document the problem clearly
-2. Include error messages
-3. Explain the root cause
-4. Provide the solution
-5. Note why it's not in official docs
-6. Add to the appropriate section
-
-This helps future deployments avoid the same pitfalls!
+- [Synapse Configuration](https://element-hq.github.io/synapse/latest/usage/configuration/config_documentation.html)

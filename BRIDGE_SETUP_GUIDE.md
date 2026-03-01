@@ -539,14 +539,14 @@ docker restart matrix-bridge-telegram
 
 ### What You Get
 
-✅ **Working**:
+**Working**:
 - Bridge connected to WhatsApp/Signal/Telegram
 - Double puppet configured (better message attribution)
-- Messages work in **unencrypted** Matrix rooms (both directions)
+- Messages work in unencrypted Matrix rooms (both directions)
 - Messages appear from your actual user, not bot
 
-❌ **Not Working** (Known Issue):
-- Encrypted Matrix rooms → Synapse NotImplementedError with MAS + MSC4190
+**Not working** (known issue):
+- Encrypted Matrix rooms — Synapse NotImplementedError with MAS + MSC4190
 
 ### Future: When MAS Appservice Login Is Supported
 

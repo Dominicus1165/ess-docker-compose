@@ -23,15 +23,23 @@ A self-hosted Matrix server stack with modern OIDC authentication, web client, o
 - [mautrix-telegram](https://github.com/mautrix/telegram) — Telegram bridge (requires API credentials)
 
 **Optional: Upstream OIDC** (`--profile authelia`)
-- [Authelia](https://www.authelia.com/) — SSO / identity provider
+- [Authelia](https://www.authelia.com/) — SSO / identity provider with 2FA
 
 ## Quick Start
+
+**Simple production deployment** — three prompts, everything else is automatic:
+
+```bash
+./quickstart.sh
+```
+
+Asks for: your domain, a Let's Encrypt email, and whether to enable Element Call. Generates all secrets and configs, starts the stack.
+
+**Advanced deployment** — local testing, Authelia SSO, multi-machine setups:
 
 ```bash
 ./deploy.sh
 ```
-
-The script handles everything interactively: generates secrets, writes configs, starts Docker services. It asks whether to enable Element Call and optionally Authelia.
 
 Bridges are set up separately after the core stack is running:
 
@@ -47,7 +55,7 @@ Browser
 Caddy (HTTPS, Let's Encrypt)
   |
   +-- matrix.example.com  -->  Synapse :8008
-  |     /.well-known       -->  (inline, served by Caddy)
+  |     /.well-known       -->  (served inline by Caddy)
   |     /login, /logout    -->  MAS :8080
   +-- auth.example.com    -->  MAS :8080
   +-- element.example.com -->  Element Web :80
@@ -61,27 +69,32 @@ All services communicate over an internal Docker network. The database is not ex
 
 ## Deployment Options
 
-**Local testing** — self-signed certificates, all services on localhost:
+**Simple production** — single machine, Let's Encrypt, no Authelia:
 ```bash
-docker compose -f docker-compose.yml -f compose-variants/docker-compose.local.yml up -d
+./quickstart.sh
 ```
 
-**Single server** — production with Caddy on the same machine:
+**Local testing** — self-signed certificates, `*.example.test` domains:
 ```bash
-./deploy.sh  # choose "single server" mode
+./deploy.sh  # choose "Local Testing"
 ```
 
-**Multi-server** — Matrix backend on one machine, Caddy on another:
+**Production with Authelia** — SSO, 2FA, upstream OIDC:
 ```bash
-./deploy.sh  # choose "multi server" mode
+./deploy.sh  # choose "Production", answer yes to Authelia
 ```
-The script generates a `caddy/Caddyfile.production` for the Caddy machine.
+
+**Multi-machine** — Matrix backend on one server, Caddy on another:
+```bash
+./deploy.sh  # choose "Production" (multi-server mode)
+```
+Generates a `caddy/Caddyfile.production` for the Caddy machine.
 
 ## Element Call
 
-When enabled, all three components are self-hosted. Media streams never leave your server (they route through your LiveKit SFU). The Element Call frontend is served from your own `call.` subdomain instead of `call.element.io`.
+When enabled, all three components are self-hosted. Media streams never leave your server (they route through your LiveKit SFU). The Element Call frontend is served from your own `call.` subdomain.
 
-Required open ports for LiveKit:
+Required open ports in addition to 80 and 443:
 - TCP 7881 (WebRTC signaling)
 - UDP 50100–50200 (media streams)
 
@@ -94,7 +107,7 @@ TELEGRAM_API_ID=your_id
 TELEGRAM_API_HASH=your_hash
 ```
 
-Bridges use double puppet support (users in Matrix rooms appear as themselves, not the bridge bot) and have encryption disabled for compatibility with MAS.
+Bridges use double puppet support (messages appear from your actual Matrix user, not a bridge bot) and have encryption disabled for compatibility with MAS. See [BRIDGE_SETUP_GUIDE.md](BRIDGE_SETUP_GUIDE.md) for details.
 
 ## Requirements
 
@@ -125,7 +138,7 @@ docker compose logs mautrix-whatsapp
 ## Data Directories
 
 ```
-postgres/data/    database
+postgres/data/    database (back this up)
 synapse/data/     media store, signing keys
 mas/data/         MAS sessions
 .env              all secrets and domain config
@@ -138,9 +151,11 @@ tar -czf matrix-backup-$(date +%Y%m%d).tar.gz postgres/data synapse/data mas/dat
 
 ## Documentation
 
-- [SETUP.md](SETUP.md) — manual setup reference
-- [PRODUCTION_DEPLOYMENT.md](PRODUCTION_DEPLOYMENT.md) — production checklist
+- [SETUP.md](SETUP.md) — manual configuration reference
+- [PRODUCTION_DEPLOYMENT.md](PRODUCTION_DEPLOYMENT.md) — production checklist and hardening
 - [BRIDGE_SETUP_GUIDE.md](BRIDGE_SETUP_GUIDE.md) — bridge configuration details
+- [BUGFIXES.md](BUGFIXES.md) — known issues and their solutions
+- [QUICK_REFERENCE.md](QUICK_REFERENCE.md) — common commands
 
 ## License
 
