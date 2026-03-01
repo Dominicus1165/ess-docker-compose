@@ -3,7 +3,7 @@
 # Generate tokens with: openssl rand -hex 32
 
 id: doublepuppet
-url: ""
+url: null
 as_token: "{{DOUBLEPUPPET_AS_TOKEN}}"
 hs_token: "{{DOUBLEPUPPET_HS_TOKEN}}"
 sender_localpart: doublepuppet

@@ -21,7 +21,7 @@ mkdir -p appservices
 echo "Creating doublepuppet appservice configuration..."
 cat > appservices/doublepuppet.yaml << EOF
 id: doublepuppet
-url: ""
+url: null
 as_token: "$DOUBLEPUPPET_AS_TOKEN"
 hs_token: "$DOUBLEPUPPET_HS_TOKEN"
 sender_localpart: doublepuppet
