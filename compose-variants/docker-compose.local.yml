@@ -1,7 +1,7 @@
 services:
   # PostgreSQL Database
   postgres:
-    image: postgres:16-alpine
+    image: postgres:tag
     container_name: matrix-postgres
     restart: unless-stopped
     environment:
@@ -22,7 +22,7 @@ services:
 
   # Matrix Synapse Server
   synapse:
-    image: matrixdotorg/synapse:latest
+    image: matrixdotorg/synapse:tag
     container_name: matrix-synapse
     restart: unless-stopped
     environment:
@@ -52,7 +52,7 @@ services:
 
   # Element Web Client
   element:
-    image: vectorim/element-web:latest
+    image: vectorim/element-web:tag
     container_name: matrix-element
     restart: unless-stopped
     volumes:
@@ -69,7 +69,7 @@ services:
   livekit:
     profiles:
       - element-call
-    image: livekit/livekit-server:latest
+    image: livekit/livekit-server:tag
     container_name: matrix-livekit
     restart: unless-stopped
     ports:
@@ -87,7 +87,7 @@ services:
   lk-jwt-service:
     profiles:
       - element-call
-    image: ghcr.io/element-hq/lk-jwt-service:latest
+    image: ghcr.io/element-hq/lk-jwt-service:tag
     container_name: matrix-lk-jwt
     restart: unless-stopped
     expose:
@@ -106,7 +106,7 @@ services:
   redis:
     profiles:
       - authelia  # Only started when Authelia profile is active
-    image: redis:7-alpine
+    image: redis:tag
     container_name: matrix-redis
     restart: unless-stopped
     networks:
@@ -121,7 +121,7 @@ services:
   authelia:
     profiles:
       - authelia  # Only started when Authelia profile is active
-    image: authelia/authelia:latest
+    image: authelia/authelia:tag
     container_name: matrix-authelia
     restart: unless-stopped
     environment:
@@ -145,7 +145,7 @@ services:
 
   # Matrix Authentication Service (MAS)
   mas:
-    image: ghcr.io/element-hq/matrix-authentication-service:latest
+    image: ghcr.io/element-hq/matrix-authentication-service:tag
     container_name: matrix-mas
     restart: unless-stopped
     environment:
@@ -176,7 +176,7 @@ services:
 
   # Caddy Reverse Proxy (HTTPS termination)
   caddy:
-    image: caddy:2-alpine
+    image: caddy:tag
     container_name: matrix-caddy
     restart: unless-stopped
     ports:
@@ -197,7 +197,7 @@ services:
 
   # mautrix-telegram Bridge
   mautrix-telegram:
-    image: dock.mau.dev/mautrix/telegram:latest
+    image: dock.mau.dev/mautrix/telegram:tag
     container_name: matrix-bridge-telegram
     restart: unless-stopped
     volumes:
@@ -210,7 +210,7 @@ services:
 
   # mautrix-whatsapp Bridge
   mautrix-whatsapp:
-    image: dock.mau.dev/mautrix/whatsapp:latest
+    image: dock.mau.dev/mautrix/whatsapp:tag
     container_name: matrix-bridge-whatsapp
     restart: unless-stopped
     volumes:
@@ -223,7 +223,7 @@ services:
 
   # mautrix-signal Bridge
   mautrix-signal:
-    image: dock.mau.dev/mautrix/signal:latest
+    image: dock.mau.dev/mautrix/signal:tag
     container_name: matrix-bridge-signal
     restart: unless-stopped
     volumes:

@@ -4,7 +4,7 @@ services:
   # PostgreSQL Database
   # Shared by Synapse and MAS
   postgres:
-    image: postgres:16-alpine
+    image: postgres:tag
     container_name: matrix-postgres
     restart: unless-stopped
     environment:
@@ -24,7 +24,7 @@ services:
 
   # Synapse - Matrix Homeserver
   synapse:
-    image: matrixdotorg/synapse:latest
+    image: matrixdotorg/synapse:tag
     container_name: matrix-synapse
     restart: unless-stopped
     ports:
@@ -49,7 +49,7 @@ services:
   # Matrix Authentication Service (MAS)
   # Handles OIDC authentication for Synapse
   mas:
-    image: ghcr.io/element-hq/matrix-authentication-service:0.13.3
+    image: ghcr.io/element-hq/matrix-authentication-service:tag
     container_name: matrix-mas
     restart: unless-stopped
     ports:
@@ -73,7 +73,7 @@ services:
 
   # Element Web - Matrix Web Client
   element:
-    image: vectorim/element-web:latest
+    image: vectorim/element-web:tag
     container_name: matrix-element
     restart: unless-stopped
     ports:
@@ -85,7 +85,7 @@ services:
 
   # Element Admin - Admin Interface
   element-admin:
-    image: awesometechnologies/synapse-admin:latest
+    image: awesometechnologies/synapse-admin:tag
     container_name: matrix-element-admin
     restart: unless-stopped
     ports:

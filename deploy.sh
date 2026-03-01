@@ -14,6 +14,87 @@ CYAN='\033[0;36m'
 MAGENTA='\033[0;35m'
 NC='\033[0m' # No Color
 
+
+# ============================================================================
+# Docker image configuration
+# ============================================================================
+
+DOCKER_REGISTRY=""  # Set to your registry URL if needed (e.g., myregistry.com/)
+USE_HARDENED_IMAGES=false  # Set to true to use hardened images (if available in your registry)
+
+# Image Tags
+SYNAPSE_TAG="latest"
+ELEMENT_TAG="latest"
+LIVEKIT_TAG="latest"
+LIVEKIT_JWT_TAG="latest"
+MAS_TAG="latest"
+AUTHELIA_TAG="latest"
+
+REDIS_TAG="7-alpine"
+REDIS_TAG_HARDENED="7"
+POSTGRES_TAG="16-alpine"
+POSTGRES_TAG_HARDENED="16"
+CADDY_TAG="2-alpine"
+CADDY_TAG_HARDENED="2"
+
+
+# Information about custom Docker registry usage
+if [ -n "$DOCKER_REGISTRY" ]; then
+    echo -e "${YELLOW}Using custom Docker registry: ${DOCKER_REGISTRY}${NC}"
+
+    # Check if $DOCKER_REGISTRY ends with a slash
+    if [[ "$DOCKER_REGISTRY" != */ ]]; then
+        DOCKER_REGISTRY="$DOCKER_REGISTRY/"
+    fi
+fi
+
+
+# Setting image names with optional registry prefix
+# Modify if needed to point to your custom registry or hardened image variants
+# Example:
+# If DOCKER_REGISTRY is "myreg.domain" then "myreg.domain/matrixdotorg/synapse:latest"
+# Else it will default to                      "docker.io/matrixdotorg/synapse:latest"
+SYNAPSE_IMAGE="${DOCKER_REGISTRY}docker.io/matrixdotorg/synapse:$SYNAPSE_TAG"
+ELEMENT_IMAGE="${DOCKER_REGISTRY}docker.io/vectorim/element-web:$ELEMENT_TAG"
+LIVEKIT_IMAGE="${DOCKER_REGISTRY}docker.io/livekit/livekit-server:$LIVEKIT_TAG"
+LIVEKIT_JWT_IMAGE="${DOCKER_REGISTRY}ghcr.io/element-hq/lk-jwt-service:$LIVEKIT_JWT_TAG"
+MAS_IMAGE="${DOCKER_REGISTRY}ghcr.io/element-hq/matrix-authentication-service:$MAS_TAG"
+AUTHELIA_IMAGE="${DOCKER_REGISTRY}docker.io/authelia/authelia:$AUTHELIA_TAG"
+
+REDIS_IMAGE="${DOCKER_REGISTRY}docker.io/redis:$REDIS_TAG"
+POSTGRES_IMAGE="${DOCKER_REGISTRY}docker.io/postgres:$POSTGRES_TAG"
+CADDY_IMAGE="${DOCKER_REGISTRY}docker.io/caddy:$CADDY_TAG"
+
+
+# Optionally use hardened images if the flag is set and they are available in the registry
+if [ "$USE_HARDENED_IMAGES" = true ]; then
+    echo -e "${YELLOW}Using hardened images from registry (if available)${NC}"
+
+    if [ -n "$DOCKER_REGISTRY" ]; then
+        # Login to Official Docker Hub if using Docker Registry for hardened images
+        docker login dhi.io
+    fi
+
+    REDIS_IMAGE="${DOCKER_REGISTRY}dhi.io/redis:$REDIS_TAG_HARDENED"
+    POSTGRES_IMAGE="${DOCKER_REGISTRY}dhi.io/postgres:$POSTGRES_TAG_HARDENED"
+    CADDY_IMAGE="${DOCKER_REGISTRY}dhi.io/caddy:$CADDY_TAG_HARDENED"
+fi
+
+# Set the images in all docker-compose.yml files (main and variants) to ensure consistency
+find . -name "docker-compose*.yml" -exec sed -i "s|image: matrixdotorg/synapse:tag|image: ${SYNAPSE_IMAGE}|g" {} \;
+find . -name "docker-compose*.yml" -exec sed -i "s|image: vectorim/element-web:tag|image: ${ELEMENT_IMAGE}|g" {} \;
+find . -name "docker-compose*.yml" -exec sed -i "s|image: livekit/livekit-server:tag|image: ${LIVEKIT_IMAGE}|g" {} \;
+find . -name "docker-compose*.yml" -exec sed -i "s|image: ghcr.io/element-hq/matrix-authentication-service:tag|image: ${MAS_IMAGE}|g" {} \;
+find . -name "docker-compose*.yml" -exec sed -i "s|image: authelia/authelia:tag|image: ${AUTHELIA_IMAGE}|g" {} \;
+find . -name "docker-compose*.yml" -exec sed -i "s|image: redis:tag|image: ${REDIS_IMAGE}|g" {} \;
+find . -name "docker-compose*.yml" -exec sed -i "s|image: postgres:tag|image: ${POSTGRES_IMAGE}|g" {} \;
+find . -name "docker-compose*.yml" -exec sed -i "s|image: caddy:tag|image: ${CADDY_IMAGE}|g" {} \;
+
+
+# ============================================================================
+# Main deployment script
+# ===========================================================================
+
 # Use sudo for docker commands
 DOCKER_CMD="sudo docker"
 DOCKER_COMPOSE_CMD="sudo docker compose"

@@ -13,7 +13,7 @@
 services:
   # Redis for Authelia session storage
   redis:
-    image: redis:7-alpine
+    image: redis:tag
     container_name: authelia-redis
     restart: unless-stopped
     networks:
@@ -28,7 +28,7 @@ services:
 
   # PostgreSQL for Authelia (optional - can use remote DB on Matrix machine)
   postgres:
-    image: postgres:16-alpine
+    image: postgres:tag
     container_name: authelia-postgres
     restart: unless-stopped
     environment:
@@ -47,7 +47,7 @@ services:
 
   # Authelia SSO
   authelia:
-    image: authelia/authelia:latest
+    image: authelia/authelia:tag
     container_name: authelia-sso
     restart: unless-stopped
     environment:
