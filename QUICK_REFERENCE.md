@@ -58,22 +58,22 @@ docker compose logs | grep -i error
 ## Access URLs (production)
 
 | Service | URL |
-|---------|-----|
-| Element Web | https://element.yourdomain.com |
-| Matrix API | https://matrix.yourdomain.com |
-| MAS Auth | https://auth.yourdomain.com |
-| Element Admin | https://admin.yourdomain.com |
-| Element Call | https://call.yourdomain.com (optional) |
+| --------- | ----- |
+| Element Web | <https://element.yourdomain.com> |
+| Matrix API | <https://matrix.yourdomain.com> |
+| MAS Auth | <https://auth.yourdomain.com> |
+| Element Admin | <https://admin.yourdomain.com> |
+| Element Call | <https://call.yourdomain.com> (optional) |
 
 ## Access URLs (local testing)
 
 | Service | URL |
-|---------|-----|
-| Element Web | https://element.example.test |
-| Matrix API | https://matrix.example.test |
-| MAS Auth | https://auth.example.test |
-| Element Admin | https://admin.example.test |
-| Authelia | https://authelia.example.test (optional) |
+| --------- | ----- |
+| Element Web | <https://element.example.test> |
+| Matrix API | <https://matrix.example.test> |
+| MAS Auth | <https://auth.example.test> |
+| Element Admin | <https://admin.example.test> |
+| Authelia | <https://authelia.example.test> (optional) |
 
 ## User Management
 
@@ -193,7 +193,7 @@ docker compose restart mas
 ## Common Error Fixes
 
 | Error | Fix |
-|-------|-----|
+| ------- | ----- |
 | `password authentication failed` | postgres/data exists with old password — wipe and redeploy |
 | `homeserver.domain not configured` (bridge) | Run `setup-bridges.sh` |
 | `as_token was not accepted` | Registration not loaded in Synapse — check `homeserver.yaml` |

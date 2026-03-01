@@ -39,14 +39,14 @@ All production deployments include fixes for:
 
 Configure A/AAAA records for your domain:
 
-```
+```text
 matrix.yourdomain.com    → Your server IP
 element.yourdomain.com   → Your server IP
 auth.yourdomain.com      → Your server IP
 authelia.yourdomain.com  → Your server IP (if using Authelia)
 ```
 
-###Step-by-Step Deployment
+### Step-by-Step Deployment
 
 #### 1. Clone and Configure
 
@@ -63,16 +63,19 @@ sudo ./deploy.sh
 ```
 
 Choose:
+
 - Deployment type: **Production**
 - Include Authelia: **Yes** or **No** (your choice)
 
 Provide:
+
 - Your domain (e.g., `yourdomain.com`)
 - Email for Let's Encrypt notifications
 
 #### 3. Review Generated Configs
 
 The script creates:
+
 - `.env` with all secrets
 - `docker-compose.production.yml` (already updated with fixes)
 - `caddy/Caddyfile.production` for single-machine setup
@@ -81,11 +84,13 @@ The script creates:
 #### 4. Start Services
 
 **Without Authelia:**
+
 ```bash
 sudo docker compose -f docker-compose.production.yml up -d
 ```
 
 **With Authelia:**
+
 ```bash
 sudo docker compose -f docker-compose.production.yml --profile authelia up -d
 ```
@@ -115,6 +120,7 @@ This automatically configures Telegram, WhatsApp, and Signal bridges. Users will
 ### Certificate Management
 
 Caddy automatically:
+
 - Obtains Let's Encrypt certificates
 - Renews certificates before expiry
 - Handles HTTPS redirects
@@ -124,6 +130,7 @@ Certificates are stored in `caddy/data/` and persist across restarts.
 ### Firewall Configuration
 
 Required ports:
+
 ```bash
 # HTTP (Let's Encrypt validation)
 sudo ufw allow 80/tcp
@@ -139,7 +146,7 @@ sudo ufw allow 8448/tcp
 
 ### Architecture
 
-```
+```text
 Internet
    ↓
 Caddy Server (SSL termination)
@@ -167,7 +174,7 @@ PostgreSQL
 
 ### Important Directories
 
-```
+```text
 postgres/data/     # PostgreSQL database (CRITICAL)
 synapse/data/      # Synapse state and media
 mas/data/          # MAS sessions and state
@@ -178,6 +185,7 @@ caddy/data/        # SSL certificates
 ### Backup Strategy
 
 **Daily backups:**
+
 ```bash
 #!/bin/bash
 # backup-matrix.sh
@@ -200,6 +208,7 @@ docker compose -f docker-compose.production.yml up -d
 ```
 
 **PostgreSQL dumps:**
+
 ```bash
 # Dump database (can be done while running)
 docker exec matrix-postgres pg_dumpall -U synapse > backup-$(date +%Y%m%d).sql
@@ -249,6 +258,7 @@ docker compose -f docker-compose.production.yml logs caddy | grep -i "renew\|cer
 **Cause**: PostgreSQL data directory password mismatch (Issue #9)
 
 **Solution**:
+
 ```bash
 # Deploy script now detects this automatically
 # If you encounter it manually:
@@ -262,6 +272,7 @@ sudo rm -rf postgres/data/
 **Cause**: CORS or MAS delegation not configured
 
 **Solution**:
+
 ```bash
 # Check Synapse delegates to MAS
 curl https://matrix.yourdomain.com/.well-known/matrix/client
@@ -276,6 +287,7 @@ curl https://matrix.yourdomain.com/.well-known/matrix/client
 **Cause**: Configuration not complete or registration not loaded
 
 **Solution**:
+
 ```bash
 # Run bridge setup script
 sudo ./setup-bridges.sh
@@ -290,11 +302,13 @@ grep "app_service_config_files" synapse/data/homeserver.yaml
 ### Issue: Let's Encrypt Certificate Fails
 
 **Causes**:
+
 - DNS not propagated yet
 - Port 80 blocked
 - Rate limit hit
 
 **Solutions**:
+
 ```bash
 # Check DNS
 dig matrix.yourdomain.com
@@ -333,7 +347,8 @@ sudo ufw deny 2019/tcp
 ```
 
 Or in Caddyfile:
-```
+
+```text
 admin localhost:2019
 ```
 
@@ -416,23 +431,26 @@ To enable federation with other Matrix servers:
 
 1. Ensure port 8448 is open
 2. Configure federation in Synapse (`synapse/data/homeserver.yaml`):
+
    ```yaml
    federation:
      enabled: true
    ```
+
 3. Verify `.well-known/matrix/server` serves correct federation endpoint
 
 Test federation:
+
 ```bash
 curl https://matrix.yourdomain.com/_matrix/federation/v1/version
 ```
 
 ## Support and Resources
 
-- Matrix Synapse docs: https://element-hq.github.io/synapse/
-- MAS docs: https://element-hq.github.io/matrix-authentication-service/
-- Authelia docs: https://www.authelia.com/
-- Caddy docs: https://caddyserver.com/docs/
+- Matrix Synapse docs: <https://element-hq.github.io/synapse/>
+- MAS docs: <https://element-hq.github.io/matrix-authentication-service/>
+- Authelia docs: <https://www.authelia.com/>
+- Caddy docs: <https://caddyserver.com/docs/>
 
 - Project BUGFIXES.md: Documents all critical undocumented issues
 - QUICK_REFERENCE.md: Common operations and commands

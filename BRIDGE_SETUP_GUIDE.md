@@ -18,7 +18,7 @@ Mautrix bridges have a **chicken-and-egg problem** during initial setup:
 
 The bridges MUST be set up in this specific order:
 
-```
+```text
 1. Start bridges WITHOUT Synapse loading them
    ↓
 2. Bridges generate registration.yaml files
@@ -54,7 +54,8 @@ Use the provided `setup-bridges.sh` script which handles the correct sequence:
 9. Restarts Synapse, then starts bridges
 
 **Telegram** requires API credentials from [my.telegram.org](https://my.telegram.org). Add to `.env` before running the script, otherwise Telegram is skipped:
-```
+
+```dotenv
 TELEGRAM_API_ID=your_api_id
 TELEGRAM_API_HASH=your_api_hash
 ```
@@ -108,6 +109,7 @@ sleep 15
 For each bridge, edit the config file:
 
 **Telegram (`bridges/telegram/config/config.yaml`):**
+
 ```yaml
 homeserver:
   address: http://synapse:8008
@@ -129,6 +131,7 @@ bridge:
 ```
 
 **WhatsApp (`bridges/whatsapp/config/config.yaml`):**
+
 ```yaml
 homeserver:
   address: http://synapse:8008
@@ -152,6 +155,7 @@ bridge:
 ```
 
 **Signal (`bridges/signal/config/config.yaml`):**
+
 ```yaml
 homeserver:
   address: http://synapse:8008
@@ -261,13 +265,15 @@ sudo docker compose -f docker-compose.local.yml logs mautrix-signal --tail 20
 ### Expected Log Messages
 
 **Successful startup:**
-```
+
+```log
 INFO - Starting bridge
 INFO - Bridge started successfully
 INFO - Listening on port 29318
 ```
 
 **Common errors and fixes:**
+
 - `homeserver.address not configured` → Fix homeserver.address in config.yaml
 - `homeserver.domain not configured` → Fix homeserver.domain (must have value, not empty)
 - `database not configured` → Fix database URI with correct password
@@ -289,21 +295,21 @@ Once bridges are running:
 
 ### Telegram Bridge
 
-```
+```shell
 !tg help        # Show commands
 !tg login       # Start login process
 ```
 
 ### WhatsApp Bridge
 
-```
+```shell
 help                    # Show commands
 login                   # Show QR code
 ```
 
 ### Signal Bridge
 
-```
+```shell
 help                    # Show commands
 link                    # Start linking process
 ```
@@ -313,11 +319,13 @@ link                    # Start linking process
 ### Bridge Keeps Restarting
 
 Check logs for specific error:
+
 ```bash
 sudo docker compose logs mautrix-whatsapp --tail 50
 ```
 
 Common causes:
+
 1. **Config error** - Review config.yaml for typos or missing values
 2. **Database error** - Ensure database exists and password is correct
 3. **Synapse not reachable** - Check `homeserver.address` points to `http://synapse:8008`
@@ -346,12 +354,14 @@ bridge:
 **CRITICAL**: As of Synapse 1.140.0, there is a known compatibility issue between encrypted bridges and Matrix Authentication Service (MAS).
 
 ### The Problem
+
 - Encrypted bridges require **appservice login** authentication for MSC4190 device masquerading
 - When MAS is enabled, it takes over authentication from Synapse
 - MAS does not currently support appservice login authentication
 - **Result**: Encrypted bridges fail with `"homeserver does not support appservice login"` error
 
 ### Symptoms
+
 - Bridge crashes during startup when encryption is enabled
 - Error message: `"failed to start Matrix connector: homeserver does not support appservice login"`
 - WhatsApp/Telegram may work (if not using encryption)
@@ -360,6 +370,7 @@ bridge:
 ### Workaround Options
 
 **Option 1: Disable encryption in affected bridges**
+
 ```yaml
 # In bridge config.yaml
 encryption:
@@ -370,7 +381,8 @@ encryption:
 
 **Option 2: Wait for MAS appservice login support**
 This is actively being developed. Check:
-- https://github.com/element-hq/matrix-authentication-service/issues/3206
+
+- <https://github.com/element-hq/matrix-authentication-service/issues/3206>
 - Recent Synapse/MAS release notes
 
 **Option 3: Disable MAS temporarily**
@@ -383,6 +395,7 @@ While bridge encryption is incompatible with MAS, you can still achieve good mes
 ### What is Double Puppet?
 
 Double puppet allows bridges to send messages **as if they came from your actual Matrix user**, rather than from a bot account. This provides:
+
 - Better message attribution (messages appear from you, not a bot)
 - Improved user experience
 - Works reliably without encryption issues
@@ -420,11 +433,13 @@ namespaces:
 ```
 
 Replace:
+
 - `YOUR_AS_TOKEN_HERE` with the AS_TOKEN you generated
 - `YOUR_HS_TOKEN_HERE` with the HS_TOKEN you generated
 - `YOUR-DOMAIN.COM` with your actual Matrix domain
 
 Set permissions:
+
 ```bash
 chmod 644 appservices/doublepuppet.yaml
 ```
@@ -454,6 +469,7 @@ synapse:
 #### Step 4: Configure Bridges with Double Puppet
 
 **WhatsApp** (`bridges/whatsapp/config/config.yaml`):
+
 ```yaml
 # mautrix-whatsapp uses top-level sections (megabridge format)
 double_puppet:
@@ -467,6 +483,7 @@ encryption:
 ```
 
 **Signal** (`bridges/signal/config/config.yaml`):
+
 ```yaml
 double_puppet:
   secrets:
@@ -479,6 +496,7 @@ encryption:
 ```
 
 **Telegram** (`bridges/telegram/config/config.yaml`):
+
 ```yaml
 bridge:
   login_shared_secret_map:
@@ -491,6 +509,7 @@ bridge:
 ```
 
 Replace:
+
 - `your-domain.com` with your Matrix domain
 - `YOUR_AS_TOKEN_HERE` with your AS_TOKEN
 
@@ -499,6 +518,7 @@ Replace:
 While encryption is disabled, you can add MSC4190 flags to registration files for future compatibility:
 
 For each `bridges/*/config/registration.yaml`, ensure these lines exist:
+
 ```yaml
 de.sorunome.msc2409.push_ephemeral: true
 receive_ephemeral: true
@@ -540,33 +560,38 @@ docker restart matrix-bridge-telegram
 ### What You Get
 
 **Working**:
+
 - Bridge connected to WhatsApp/Signal/Telegram
 - Double puppet configured (better message attribution)
 - Messages work in unencrypted Matrix rooms (both directions)
 - Messages appear from your actual user, not bot
 
 **Not working** (known issue):
+
 - Encrypted Matrix rooms — Synapse NotImplementedError with MAS + MSC4190
 
 ### Future: When MAS Appservice Login Is Supported
 
-Bridge encryption via MSC4190 requires appservice login support in MAS, which is not yet implemented. Track progress at https://github.com/element-hq/matrix-authentication-service/issues/3206.
+Bridge encryption via MSC4190 requires appservice login support in MAS, which is not yet implemented. Track progress at <https://github.com/element-hq/matrix-authentication-service/issues/3206>.
 
 When it lands, update bridge configs to re-enable encryption (fields vary by bridge type — check the bridge's generated `config.yaml` for the correct structure) and restart the bridge containers.
 
 ### Troubleshooting Double Puppet
 
 **Bridge logs show "double puppet not enabled"**:
+
 - Verify AS_TOKEN matches in both `appservices/doublepuppet.yaml` and bridge config
 - Ensure Synapse loaded the appservice (check Synapse logs for "Registered application service")
 - Verify appservices directory is mounted in Synapse container
 
 **Messages still come from bot instead of my user**:
+
 - Double puppet may not be enabled yet
 - Try sending `login-matrix` command to the bridge bot
 - Check bridge logs for double puppet status
 
 **Encryption errors in logs**:
+
 - Ensure `encryption.allow: false` in all bridge configs
 - Clear portal database and restart bridges to force room recreation
 

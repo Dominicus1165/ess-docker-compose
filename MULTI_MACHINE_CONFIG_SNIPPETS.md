@@ -12,19 +12,20 @@ This document provides configuration snippets for deploying Matrix stack across 
 
 ## Architecture
 
-```
+```text
 Machine 1: Caddy (SSL Termination)      → Port 443 (matrix, auth, element domains)
 Machine 2: Authelia (SSO)               → Port 443 (authelia domain, with own reverse proxy)
 Machine 3: Matrix Stack (this machine)  → Synapse, MAS, Element, PostgreSQL (internal ports)
 ```
 
 **Network Flow**:
+
 - User → `https://matrix.example.com` → Caddy (Machine 1) → Synapse (Machine 3:8008)
 - User → `https://auth.example.com` → Caddy (Machine 1) → MAS (Machine 3:8080)
 - User → `https://authelia.example.com` → Authelia's reverse proxy (Machine 2) → Authelia (Machine 2:9091)
 - MAS → `https://authelia.example.com` → Authelia's reverse proxy (Machine 2) → Authelia (Machine 2:9091)
 
-## Prerequisites - Generate Secrets First!
+## Prerequisites - Generate Secrets First
 
 **IMPORTANT**: Before you can configure Authelia and Caddy, you must run the deploy script on the Matrix server to generate all secrets.
 
@@ -42,6 +43,7 @@ cd /path/to/matrix-docker-compose
 ```
 
 The script will:
+
 1. Generate all secure secrets (passwords, keys, tokens)
 2. Create `.env` file with secrets
 3. Create configuration files with secrets embedded
@@ -69,7 +71,7 @@ Now extract the secrets and copy them to the appropriate machines.
 
 On the Matrix server after running deploy.sh:
 
-### Extract from `.env` file:
+### Extract from `.env` file
 
 ```bash
 # On Matrix server
@@ -82,7 +84,7 @@ AUTHELIA_SESSION_SECRET=...
 AUTHELIA_STORAGE_ENCRYPTION_KEY=...
 ```
 
-### Extract CLIENT_SECRET_PLAIN from MAS config:
+### Extract CLIENT_SECRET_PLAIN from MAS config
 
 ```bash
 # On Matrix server
@@ -93,7 +95,7 @@ grep "client_secret:" mas/config/config.yaml | grep -v "#"
 # Copy this value - you'll need it for Authelia config
 ```
 
-### Get CLIENT_SECRET_HASH for Authelia:
+### Get CLIENT_SECRET_HASH for Authelia
 
 ```bash
 # On Matrix server
@@ -104,7 +106,7 @@ grep "client_secret:" authelia/config/configuration.yml | grep -v "#"
 # Copy this hash - it's the hashed version of CLIENT_SECRET_PLAIN
 ```
 
-### Get RSA Private Key:
+### Get RSA Private Key
 
 ```bash
 # On Matrix server
@@ -116,7 +118,7 @@ cat authelia_private.pem
 # -----END RSA PRIVATE KEY-----
 ```
 
-### Get Admin Password Hash:
+### Get Admin Password Hash
 
 ```bash
 # On Matrix server
@@ -127,10 +129,11 @@ grep "password:" authelia/config/users_database.yml | grep -v "#"
 # Copy this hash
 ```
 
-### Admin Password (Plain Text):
+### Admin Password (Plain Text)
 
 The deploy script displays this once. Example output:
-```
+
+```text
 ⚠ Default admin password: 58XiX7kLoRjqApEKB2GeQJJotLYHXmI7 (SAVE THIS!)
 ```
 
@@ -567,7 +570,7 @@ element.example.com:443 {
 
 Configure your DNS records to point to the correct servers:
 
-```
+```dns
 matrix.example.com      A/AAAA    → Caddy Server IP (Machine 1)
 element.example.com     A/AAAA    → Caddy Server IP (Machine 1)
 auth.example.com        A/AAAA    → Caddy Server IP (Machine 1)
@@ -575,6 +578,7 @@ authelia.example.com    A/AAAA    → Authelia Server IP (Machine 2)
 ```
 
 **Important**:
+
 - Caddy (Machine 1) handles Matrix, Element, and MAS (auth) endpoints
 - Authelia (Machine 2) handles its own domain with its own reverse proxy
 - Matrix server (Machine 3) is not directly accessible from internet
@@ -602,6 +606,7 @@ cd /path/to/matrix-docker-compose
 ```
 
 After completion, you'll have:
+
 - `authelia/config/configuration.yml` ← Copy to Authelia server
 - `authelia/config/users_database.yml` ← Copy to Authelia server
 - `mas/config/config.yaml` ← Already has correct discovery_url
@@ -640,6 +645,7 @@ sudo systemctl start authelia
 ```
 
 Verify Authelia is working:
+
 ```bash
 curl https://authelia.example.com/.well-known/openid-configuration
 # Should return JSON with OIDC endpoints
@@ -660,6 +666,7 @@ sudo caddy reload --config /etc/caddy/Caddyfile
 ```
 
 Verify Caddy is proxying:
+
 ```bash
 curl https://auth.example.com/.well-known/openid-configuration
 # Should return MAS OIDC config
@@ -743,6 +750,7 @@ All should return valid responses with Let's Encrypt certificates.
 **File**: `/etc/caddy/Caddyfile`
 
 Handles:
+
 - `matrix.example.com` → proxies to Matrix Server (10.0.1.10:8008)
 - `auth.example.com` → proxies to Matrix Server (10.0.1.10:8080 - MAS)
 - `element.example.com` → proxies to Matrix Server (10.0.1.10:80 - Element)
@@ -752,11 +760,13 @@ Handles:
 ### Machine 2 (Authelia - SSO)
 
 **Files**:
+
 - `/etc/authelia/configuration.yml` - Authelia config with OIDC client for MAS
 - `/etc/authelia/users_database.yml` - User database
 - `/etc/caddy/Caddyfile` or `/etc/nginx/sites-available/authelia` - Reverse proxy for port 443
 
 Handles:
+
 - `authelia.example.com` on port 443
 - Authelia listens internally on port 9091
 - Reverse proxy forwards HTTPS (443) → localhost:9091
@@ -764,12 +774,14 @@ Handles:
 ### Machine 3 (Matrix Stack)
 
 **Services running**:
+
 - Synapse (port 8008) - Matrix homeserver
 - MAS (port 8080) - Authentication service
 - Element (port 80) - Web client
 - PostgreSQL (port 5432) - Database
 
 **Configuration**:
+
 - MAS configured with `discovery_url: 'https://authelia.example.com/.well-known/openid-configuration'`
 - All services communicate with Authelia via public HTTPS URL
 - Not directly accessible from internet (behind Caddy)
@@ -802,6 +814,7 @@ curl https://element.example.com
 ```
 
 If any fail:
+
 - Check DNS records point to correct IPs
 - Verify firewall allows port 443
 - Check reverse proxy configs
@@ -820,12 +833,14 @@ docker compose up -d
 ```
 
 **What starts:**
+
 - ✅ PostgreSQL
 - ✅ Synapse (Matrix homeserver)
 - ✅ MAS (Authentication service)
 - ✅ Element (Web client)
 
 **What does NOT start:**
+
 - ❌ Caddy (runs separately on Machine 1)
 - ❌ Authelia (runs separately on Machine 2)
 - ❌ Redis (only needed if Authelia is in Docker)
@@ -845,4 +860,3 @@ docker compose --profile single-machine up -d
 ```
 
 **What starts:** Everything including Caddy in Docker with Let's Encrypt
-
