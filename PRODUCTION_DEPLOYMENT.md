@@ -160,7 +160,7 @@ PostgreSQL
 
 1. Run deployment script, choose production mode
 2. Use `docker-compose.production.yml` but remove Caddy service
-3. Expose ports 8008, 8080, 8090 to Caddy server only (firewall)
+3. Expose ports 8008, 8080, 8083, 8091 to Caddy server only (firewall)
 4. Start services
 
 ## Data Persistence and Backups

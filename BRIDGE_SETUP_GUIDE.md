@@ -43,14 +43,21 @@ Use the provided `setup-bridges.sh` script which handles the correct sequence:
 
 ### What the Script Does
 
-1. **Removes** docker-compose dependency on Synapse health
-2. **Starts each bridge** independently to generate configs and registrations
-3. **Configures** all bridge settings (homeserver address, database, permissions)
-4. **Waits** for registration.yaml files to be created
-5. **Adds** registration paths to Synapse homeserver.yaml
-6. **Mounts** bridge directory in Synapse container
-7. **Restarts** Synapse to load appservice registrations
-8. **Starts** all bridges with proper Synapse integration
+1. Generates a double puppet appservice token pair
+2. Starts all bridges simultaneously to generate default configs, then stops them
+3. Configures each bridge (homeserver address, domain, database, permissions, double puppet, encryption off)
+4. Sets `hostname: 0.0.0.0` so Synapse can reach bridges across Docker containers
+5. Restarts bridges to generate `registration.yaml` files, then stops them
+6. Sets file permissions so Synapse can read the registration files
+7. Creates bridge databases in PostgreSQL
+8. Registers all appservices in `synapse/data/homeserver.yaml`
+9. Restarts Synapse, then starts bridges
+
+**Telegram** requires API credentials from [my.telegram.org](https://my.telegram.org). Add to `.env` before running the script, otherwise Telegram is skipped:
+```
+TELEGRAM_API_ID=your_api_id
+TELEGRAM_API_HASH=your_api_hash
+```
 
 ## Manual Bridge Setup (If Script Fails)
 
@@ -400,7 +407,7 @@ Create `appservices/doublepuppet.yaml`:
 
 ```yaml
 id: doublepuppet
-url: ""
+url: null
 as_token: "YOUR_AS_TOKEN_HERE"
 hs_token: "YOUR_HS_TOKEN_HERE"
 sender_localpart: doublepuppet
@@ -448,34 +455,27 @@ synapse:
 
 **WhatsApp** (`bridges/whatsapp/config/config.yaml`):
 ```yaml
-bridge:
-  double_puppet:
-    secrets:
-      your-domain.com: as_token:YOUR_AS_TOKEN_HERE
+# mautrix-whatsapp uses top-level sections (megabridge format)
+double_puppet:
+  secrets:
+    your-domain.com: as_token:YOUR_AS_TOKEN_HERE
 
-  # Disable encryption (not compatible with MAS)
-  encryption:
-    allow: false
-    default: false
-    msc4190: false
-    self_sign: false
-    allow_key_sharing: true
+encryption:
+  allow: false
+  default: false
+  msc4190: false
 ```
 
 **Signal** (`bridges/signal/config/config.yaml`):
 ```yaml
-bridge:
-  double_puppet:
-    secrets:
-      your-domain.com: as_token:YOUR_AS_TOKEN_HERE
+double_puppet:
+  secrets:
+    your-domain.com: as_token:YOUR_AS_TOKEN_HERE
 
-  # Disable encryption (not compatible with MAS)
-  encryption:
-    allow: false
-    default: false
-    msc4190: false
-    self_sign: false
-    allow_key_sharing: true
+encryption:
+  allow: false
+  default: false
+  msc4190: false
 ```
 
 **Telegram** (`bridges/telegram/config/config.yaml`):
@@ -548,25 +548,11 @@ docker restart matrix-bridge-telegram
 ❌ **Not Working** (Known Issue):
 - Encrypted Matrix rooms → Synapse NotImplementedError with MAS + MSC4190
 
-### Future: When Synapse Fixes MSC4190 + MAS
+### Future: When MAS Appservice Login Is Supported
 
-When Synapse fixes the MSC4190 + MAS compatibility issue:
+Bridge encryption via MSC4190 requires appservice login support in MAS, which is not yet implemented. Track progress at https://github.com/element-hq/matrix-authentication-service/issues/3206.
 
-1. Update bridge configs:
-   ```yaml
-   encryption:
-     allow: true
-     default: false  # Or true if you want encryption by default
-     msc4190: true
-     self_sign: true
-   ```
-
-2. Restart bridges:
-   ```bash
-   docker restart matrix-bridge-whatsapp matrix-bridge-signal matrix-bridge-telegram
-   ```
-
-3. Encrypted rooms will work automatically
+When it lands, update bridge configs to re-enable encryption (fields vary by bridge type — check the bridge's generated `config.yaml` for the correct structure) and restart the bridge containers.
 
 ### Troubleshooting Double Puppet
 

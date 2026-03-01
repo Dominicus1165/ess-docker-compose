@@ -709,16 +709,21 @@ Navigate to: `https://element.example.com`
 
 ### 13a. Open admin interface
 
-Navigate to: `http://YOUR_SERVER_IP:8081`
+Navigate to: `http://YOUR_SERVER_IP:8091`
 
-**⚠️ Security Note:** This interface has no authentication by default. Restrict access by IP in production!
+Element Admin authenticates via MAS (OIDC). The `docker-compose.yml` service definition must include:
+```yaml
+environment:
+  SERVER_NAME: "matrix.example.com"
+  OIDC_CLIENT_ID: "01ADMN00000000000000000000"
+  OIDC_ISSUER: "https://auth.example.com/"
+```
+These are included in the provided `docker-compose.yml`. In production, restrict port 8091 to the Caddy server's IP via firewall.
 
 ### 13b. Connect to homeserver
 
-1. Enter homeserver URL: `https://matrix.example.com`
-2. Enter username: `admin`
-3. Enter password: (from Step 11a)
-4. Click **"Sign In"**
+1. The interface will redirect to MAS for login automatically
+2. Log in with your admin account credentials
 
 **✓ You should see:**
 - Admin dashboard loaded
@@ -937,7 +942,7 @@ curl https://matrix.example.com/_matrix/client/versions
 
 1. Find what's using the ports:
    ```bash
-   sudo netstat -tlnp | grep -E '8008|8080|8082|8081|5432'
+   sudo netstat -tlnp | grep -E '8008|8080|8082|8091|5432'
    ```
 
 2. Either:
