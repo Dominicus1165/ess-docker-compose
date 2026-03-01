@@ -422,6 +422,17 @@ LIVEKIT_SECRET=${LIVEKIT_SECRET}
 EOF
 fi
 
+# Telegram bridge credentials placeholder (obtain from https://my.telegram.org)
+if ! grep -q "TELEGRAM_API_ID" .env 2>/dev/null; then
+    cat >> .env << 'ENVEOF'
+
+# Telegram Bridge — obtain API credentials at https://my.telegram.org (Apps tab)
+# Uncomment and fill in before running setup-bridges.sh to enable Telegram
+# TELEGRAM_API_ID=your_api_id
+# TELEGRAM_API_HASH=your_api_hash
+ENVEOF
+fi
+
 print_status ".env file updated"
 echo ""
 

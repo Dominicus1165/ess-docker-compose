@@ -42,139 +42,197 @@ docker compose stop mautrix-telegram mautrix-whatsapp mautrix-signal 2>/dev/null
 # Clean old configs
 sudo rm -rf bridges/telegram/config/* bridges/whatsapp/config/* bridges/signal/config/*
 
-# Generate configs by starting briefly
-docker compose up -d mautrix-telegram && sleep 15 && docker compose stop mautrix-telegram
-docker compose up -d mautrix-whatsapp && sleep 15 && docker compose stop mautrix-whatsapp
-docker compose up -d mautrix-signal && sleep 15 && docker compose stop mautrix-signal
+# Start all bridges simultaneously to generate default configs, then stop
+echo "Generating default bridge configs..."
+docker compose up -d mautrix-telegram mautrix-whatsapp mautrix-signal 2>&1
+sleep 20
+docker compose stop mautrix-telegram mautrix-whatsapp mautrix-signal 2>&1
 
-# Configure Telegram
+# -----------------------------------------------------------------------
+# Configure Telegram bridge
+# -----------------------------------------------------------------------
 echo "Configuring Telegram bridge..."
-sudo sed -i "s|address: https://example.com|address: http://synapse:8008|" bridges/telegram/config/config.yaml
-sudo sed -i "s|domain: example.com|domain: ${MATRIX_DOMAIN}|" bridges/telegram/config/config.yaml
-sudo sed -i "s|address: http://localhost:29317|address: http://mautrix-telegram:29317|" bridges/telegram/config/config.yaml
-sudo sed -i "s|database: postgres://username:password@hostname/dbname|database: postgres://synapse:${POSTGRES_PASSWORD}@postgres/telegram|" bridges/telegram/config/config.yaml
+
+# Telegram requires API credentials from my.telegram.org
+if [ -z "${TELEGRAM_API_ID:-}" ] || [ -z "${TELEGRAM_API_HASH:-}" ]; then
+    echo ""
+    echo "⚠  TELEGRAM_API_ID and TELEGRAM_API_HASH are not set in .env"
+    echo "   Obtain them at https://my.telegram.org"
+    echo "   Add to .env and re-run this script to enable the Telegram bridge."
+    echo "   Skipping Telegram configuration."
+    echo ""
+    SKIP_TELEGRAM=true
+else
+    SKIP_TELEGRAM=false
+fi
+
+# Homeserver endpoint (Telegram default: https://example.com, 4-space indent)
+if [ "$SKIP_TELEGRAM" = "false" ]; then
+sudo sed -i "s|    address: https://example.com|    address: http://synapse:8008|" bridges/telegram/config/config.yaml
+# Homeserver domain
+sudo sed -i "s|    domain: example.com|    domain: ${MATRIX_DOMAIN}|" bridges/telegram/config/config.yaml
+# Bridge's own address
+sudo sed -i "s|    address: http://localhost:29317|    address: http://mautrix-telegram:29317|" bridges/telegram/config/config.yaml
+# Database (Telegram uses 'database:' key, not 'uri:')
+sudo sed -i "s|    database: postgres://username:password@hostname/dbname|    database: postgres://synapse:${POSTGRES_PASSWORD}@postgres/telegram|" bridges/telegram/config/config.yaml
+# Permissions: remove all placeholder entries (sentinel for "not configured"), add domain admin
 sudo sed -i "/'@admin:example.com': admin/d" bridges/telegram/config/config.yaml
+sudo sed -i "/        example.com: full/d" bridges/telegram/config/config.yaml
+sudo sed -i "/        public.example.com: user/d" bridges/telegram/config/config.yaml
 sudo sed -i "/permissions:/a\\        '${MATRIX_DOMAIN}': admin" bridges/telegram/config/config.yaml
+# Double puppet: replace placeholder in login_shared_secret_map (8-space entry)
+sudo sed -i "s|        example.com: foobar|        ${MATRIX_DOMAIN}: as_token:${DOUBLEPUPPET_AS_TOKEN}|" bridges/telegram/config/config.yaml
+# Telegram API credentials (required — obtained from my.telegram.org)
+sudo sed -i "s|    api_id: 12345|    api_id: ${TELEGRAM_API_ID}|" bridges/telegram/config/config.yaml
+sudo sed -i "s|    api_hash: tjyd5yge35lbodk1xwzw2jstp90k55qz|    api_hash: ${TELEGRAM_API_HASH}|" bridges/telegram/config/config.yaml
+# Encryption: already false by default; set explicitly for safety (8-space fields inside bridge:)
+sudo sed -i "s/^        allow: true$/        allow: false/" bridges/telegram/config/config.yaml
+sudo sed -i "s/^        default: true$/        default: false/" bridges/telegram/config/config.yaml
+sudo sed -i "s/^        msc4190: true$/        msc4190: false/" bridges/telegram/config/config.yaml
 
-# Add double puppet configuration for Telegram
-if ! sudo grep -q "login_shared_secret_map:" bridges/telegram/config/config.yaml; then
-    sudo sed -i "/permissions:/i\\  login_shared_secret_map:\n    ${MATRIX_DOMAIN}: as_token:${DOUBLEPUPPET_AS_TOKEN}" bridges/telegram/config/config.yaml
-else
-    sudo sed -i "s|login_shared_secret_map:.*|login_shared_secret_map:\n    ${MATRIX_DOMAIN}: as_token:${DOUBLEPUPPET_AS_TOKEN}|" bridges/telegram/config/config.yaml
-fi
+echo "✓ Telegram configured"
+fi  # end SKIP_TELEGRAM
 
-# Disable encryption for Telegram (not compatible with MAS)
-if sudo grep -q "encryption:" bridges/telegram/config/config.yaml; then
-    sudo sed -i "/encryption:/,/default:/ { s|allow:.*|allow: false|; s|default:.*|default: false| }" bridges/telegram/config/config.yaml
-else
-    echo "    encryption:" | sudo tee -a bridges/telegram/config/config.yaml > /dev/null
-    echo "        allow: false" | sudo tee -a bridges/telegram/config/config.yaml > /dev/null
-    echo "        default: false" | sudo tee -a bridges/telegram/config/config.yaml > /dev/null
-fi
-
-echo "✓ Telegram configured with double puppet and encryption disabled"
-
-# Configure WhatsApp
+# -----------------------------------------------------------------------
+# Configure WhatsApp bridge (megabridge format: 4-space field indentation)
+# -----------------------------------------------------------------------
 echo "Configuring WhatsApp bridge..."
-DOMAIN_LINE=$(sudo grep -n "^  domain:" bridges/whatsapp/config/config.yaml | cut -d: -f1)
-[ -n "$DOMAIN_LINE" ] && sudo sed -i "${DOMAIN_LINE}s|.*|  domain: ${MATRIX_DOMAIN}|" bridges/whatsapp/config/config.yaml
-sudo sed -i "s|address: http://localhost:29318|address: http://mautrix-whatsapp:29318|" bridges/whatsapp/config/config.yaml
-sudo sed -i "s|uri: postgres://user:password@host/database?sslmode=disable|uri: postgres://synapse:${POSTGRES_PASSWORD}@postgres/whatsapp?sslmode=disable|" bridges/whatsapp/config/config.yaml
-sudo sed -i "/\"@admin:example.com\": admin/d" bridges/whatsapp/config/config.yaml
+
+# Homeserver endpoint (megabridge default: http://example.localhost:8008, 4-space indent)
+sudo sed -i "s|    address: http://example.localhost:8008|    address: http://synapse:8008|" bridges/whatsapp/config/config.yaml
+# Homeserver domain (4-space indent in megabridge format — NOT 2-space)
+sudo sed -i "s|    domain: example.com|    domain: ${MATRIX_DOMAIN}|" bridges/whatsapp/config/config.yaml
+# Bridge's own address
+sudo sed -i "s|    address: http://localhost:29318|    address: http://mautrix-whatsapp:29318|" bridges/whatsapp/config/config.yaml
+# Database
+sudo sed -i "s|    uri: postgres://user:password@host/database?sslmode=disable|    uri: postgres://synapse:${POSTGRES_PASSWORD}@postgres/whatsapp?sslmode=disable|" bridges/whatsapp/config/config.yaml
+# Listen on all interfaces (required for Docker: Synapse is on a different container)
+sudo sed -i "s|    hostname: 127.0.0.1|    hostname: 0.0.0.0|" bridges/whatsapp/config/config.yaml
+# Permissions: remove placeholder entries (8-space indent), add domain admin
+sudo sed -i '/        "example.com": user/d' bridges/whatsapp/config/config.yaml
+sudo sed -i '/        "@admin:example.com": admin/d' bridges/whatsapp/config/config.yaml
 sudo sed -i "/permissions:/a\\        \"${MATRIX_DOMAIN}\": admin" bridges/whatsapp/config/config.yaml
-[ -f bridges/whatsapp/config/registration.yaml ] && sudo sed -i "s|url: http://localhost:29318|url: http://mautrix-whatsapp:29318|" bridges/whatsapp/config/registration.yaml
+# Double puppet: replace placeholder in secrets (already present in default config, 8-space indent)
+sudo sed -i "s|        example.com: as_token:foobar|        ${MATRIX_DOMAIN}: as_token:${DOUBLEPUPPET_AS_TOKEN}|" bridges/whatsapp/config/config.yaml
+# Encryption: already false by default; set explicitly for safety (4-space fields under top-level encryption:)
+sudo sed -i "s/^    allow: true$/    allow: false/" bridges/whatsapp/config/config.yaml
+sudo sed -i "s/^    default: true$/    default: false/" bridges/whatsapp/config/config.yaml
+sudo sed -i "s/^    msc4190: true$/    msc4190: false/" bridges/whatsapp/config/config.yaml
 
-# Add double puppet configuration for WhatsApp
-if ! sudo grep -q "double_puppet:" bridges/whatsapp/config/config.yaml; then
-    sudo sed -i "/permissions:/i\\  double_puppet:\n    secrets:\n      ${MATRIX_DOMAIN}: as_token:${DOUBLEPUPPET_AS_TOKEN}" bridges/whatsapp/config/config.yaml
-fi
+echo "✓ WhatsApp configured"
 
-# Disable encryption for WhatsApp (not compatible with MAS)
-if sudo grep -q "encryption:" bridges/whatsapp/config/config.yaml; then
-    sudo sed -i "/encryption:/,/allow_key_sharing:/ { s|allow:.*|allow: false|; s|default:.*|default: false|; s|msc4190:.*|msc4190: false|; s|self_sign:.*|self_sign: false|; s|allow_key_sharing:.*|allow_key_sharing: true| }" bridges/whatsapp/config/config.yaml
-else
-    echo "    encryption:" | sudo tee -a bridges/whatsapp/config/config.yaml > /dev/null
-    echo "        allow: false" | sudo tee -a bridges/whatsapp/config/config.yaml > /dev/null
-    echo "        default: false" | sudo tee -a bridges/whatsapp/config/config.yaml > /dev/null
-    echo "        msc4190: false" | sudo tee -a bridges/whatsapp/config/config.yaml > /dev/null
-    echo "        self_sign: false" | sudo tee -a bridges/whatsapp/config/config.yaml > /dev/null
-    echo "        allow_key_sharing: true" | sudo tee -a bridges/whatsapp/config/config.yaml > /dev/null
-fi
-
-echo "✓ WhatsApp configured with double puppet and encryption disabled"
-
-# Configure Signal
+# -----------------------------------------------------------------------
+# Configure Signal bridge (megabridge format: 4-space field indentation)
+# -----------------------------------------------------------------------
 echo "Configuring Signal bridge..."
-DOMAIN_LINE=$(sudo grep -n "^  domain:" bridges/signal/config/config.yaml | cut -d: -f1)
-[ -n "$DOMAIN_LINE" ] && sudo sed -i "${DOMAIN_LINE}s|.*|  domain: ${MATRIX_DOMAIN}|" bridges/signal/config/config.yaml
-sudo sed -i "s|address: http://localhost:29328|address: http://mautrix-signal:29328|" bridges/signal/config/config.yaml
-sudo sed -i "s|uri: postgres://user:password@host/database?sslmode=disable|uri: postgres://synapse:${POSTGRES_PASSWORD}@postgres/signal?sslmode=disable|" bridges/signal/config/config.yaml
-sudo sed -i "/\"@admin:example.com\": admin/d" bridges/signal/config/config.yaml
+
+# Homeserver endpoint (megabridge default: http://example.localhost:8008, 4-space indent)
+sudo sed -i "s|    address: http://example.localhost:8008|    address: http://synapse:8008|" bridges/signal/config/config.yaml
+# Homeserver domain (4-space indent in megabridge format — NOT 2-space)
+sudo sed -i "s|    domain: example.com|    domain: ${MATRIX_DOMAIN}|" bridges/signal/config/config.yaml
+# Bridge's own address
+sudo sed -i "s|    address: http://localhost:29328|    address: http://mautrix-signal:29328|" bridges/signal/config/config.yaml
+# Database
+sudo sed -i "s|    uri: postgres://user:password@host/database?sslmode=disable|    uri: postgres://synapse:${POSTGRES_PASSWORD}@postgres/signal?sslmode=disable|" bridges/signal/config/config.yaml
+# Listen on all interfaces (required for Docker: Synapse is on a different container)
+sudo sed -i "s|    hostname: 127.0.0.1|    hostname: 0.0.0.0|" bridges/signal/config/config.yaml
+# Permissions: remove placeholder entries (8-space indent), add domain admin
+sudo sed -i '/        "example.com": user/d' bridges/signal/config/config.yaml
+sudo sed -i '/        "@admin:example.com": admin/d' bridges/signal/config/config.yaml
 sudo sed -i "/permissions:/a\\        \"${MATRIX_DOMAIN}\": admin" bridges/signal/config/config.yaml
-[ -f bridges/signal/config/registration.yaml ] && sudo sed -i "s|url: http://localhost:29328|url: http://mautrix-signal:29328|" bridges/signal/config/registration.yaml
+# Double puppet: replace placeholder in secrets (already present in default config, 8-space indent)
+sudo sed -i "s|        example.com: as_token:foobar|        ${MATRIX_DOMAIN}: as_token:${DOUBLEPUPPET_AS_TOKEN}|" bridges/signal/config/config.yaml
+# Encryption: already false by default; set explicitly for safety (4-space fields under top-level encryption:)
+sudo sed -i "s/^    allow: true$/    allow: false/" bridges/signal/config/config.yaml
+sudo sed -i "s/^    default: true$/    default: false/" bridges/signal/config/config.yaml
+sudo sed -i "s/^    msc4190: true$/    msc4190: false/" bridges/signal/config/config.yaml
 
-# Add double puppet configuration for Signal
-if ! sudo grep -q "double_puppet:" bridges/signal/config/config.yaml; then
-    sudo sed -i "/permissions:/i\\  double_puppet:\n    secrets:\n      ${MATRIX_DOMAIN}: as_token:${DOUBLEPUPPET_AS_TOKEN}" bridges/signal/config/config.yaml
-fi
+echo "✓ Signal configured"
 
-# Disable encryption for Signal (not compatible with MAS)
-if sudo grep -q "encryption:" bridges/signal/config/config.yaml; then
-    sudo sed -i "/encryption:/,/allow_key_sharing:/ { s|allow:.*|allow: false|; s|default:.*|default: false|; s|msc4190:.*|msc4190: false|; s|self_sign:.*|self_sign: false|; s|allow_key_sharing:.*|allow_key_sharing: true| }" bridges/signal/config/config.yaml
-else
-    echo "    encryption:" | sudo tee -a bridges/signal/config/config.yaml > /dev/null
-    echo "        allow: false" | sudo tee -a bridges/signal/config/config.yaml > /dev/null
-    echo "        default: false" | sudo tee -a bridges/signal/config/config.yaml > /dev/null
-    echo "        msc4190: false" | sudo tee -a bridges/signal/config/config.yaml > /dev/null
-    echo "        self_sign: false" | sudo tee -a bridges/signal/config/config.yaml > /dev/null
-    echo "        allow_key_sharing: true" | sudo tee -a bridges/signal/config/config.yaml > /dev/null
-fi
+# -----------------------------------------------------------------------
+# Start bridges with valid configs so they generate registration.yaml
+# -----------------------------------------------------------------------
+echo "Starting bridges to generate registration files..."
+docker compose up -d mautrix-telegram mautrix-whatsapp mautrix-signal 2>&1
 
-echo "✓ Signal configured with double puppet and encryption disabled"
+echo "Waiting for registration files (up to 60s)..."
+for i in $(seq 1 12); do
+    sleep 5
+    [ -f bridges/whatsapp/config/registration.yaml ] && WA_REG=1 || WA_REG=0
+    [ -f bridges/signal/config/registration.yaml ]   && SIG_REG=1 || SIG_REG=0
+    [ "$SKIP_TELEGRAM" = "true" ] && TG_REG=1 || { [ -f bridges/telegram/config/registration.yaml ] && TG_REG=1 || TG_REG=0; }
+    if [ "$TG_REG" = "1" ] && [ "$WA_REG" = "1" ] && [ "$SIG_REG" = "1" ]; then
+        echo "✓ All registration files generated"
+        break
+    fi
+    echo "  attempt $i/12: telegram=$TG_REG whatsapp=$WA_REG signal=$SIG_REG"
+done
 
+# Make registration files readable by Synapse container user (bridge containers create them as root:root 600)
+sudo chmod 644 bridges/whatsapp/config/registration.yaml bridges/signal/config/registration.yaml
+[ "$SKIP_TELEGRAM" = "false" ] && sudo chmod 644 bridges/telegram/config/registration.yaml || true
+
+# Stop bridges while we register them with Synapse
+docker compose stop mautrix-telegram mautrix-whatsapp mautrix-signal 2>&1
+
+# -----------------------------------------------------------------------
 # Create databases
+# -----------------------------------------------------------------------
 docker exec matrix-postgres psql -U synapse -tc "SELECT 1 FROM pg_database WHERE datname = 'telegram'" | grep -q 1 || docker exec matrix-postgres psql -U synapse -c "CREATE DATABASE telegram;"
 docker exec matrix-postgres psql -U synapse -tc "SELECT 1 FROM pg_database WHERE datname = 'whatsapp'" | grep -q 1 || docker exec matrix-postgres psql -U synapse -c "CREATE DATABASE whatsapp;"
 docker exec matrix-postgres psql -U synapse -tc "SELECT 1 FROM pg_database WHERE datname = 'signal'" | grep -q 1 || docker exec matrix-postgres psql -U synapse -c "CREATE DATABASE signal;"
 
-# Add registrations to Synapse (including double puppet)
+# -----------------------------------------------------------------------
+# Register all appservices with Synapse
+# -----------------------------------------------------------------------
 echo "Registering appservices with Synapse..."
-if ! sudo grep -q "^app_service_config_files:" synapse/data/homeserver.yaml; then
-    echo -e "\n# Appservice registrations (bridges and double puppet)\napp_service_config_files:" | sudo tee -a synapse/data/homeserver.yaml > /dev/null
-fi
-
-# Remove old registrations
+# Remove previous section completely (idempotent — handles all partial states)
 sudo sed -i '/^  - \/bridges\//d' synapse/data/homeserver.yaml
 sudo sed -i '/^  - \/appservices\//d' synapse/data/homeserver.yaml
+sudo sed -i '/^app_service_config_files:/d' synapse/data/homeserver.yaml
+sudo sed -i '/^# Appservice registrations (bridges and double puppet)$/d' synapse/data/homeserver.yaml
 
-# Add new registrations
-echo "  - /appservices/doublepuppet.yaml" | sudo tee -a synapse/data/homeserver.yaml > /dev/null
-echo "  - /bridges/whatsapp/config/registration.yaml" | sudo tee -a synapse/data/homeserver.yaml > /dev/null
-echo "  - /bridges/signal/config/registration.yaml" | sudo tee -a synapse/data/homeserver.yaml > /dev/null
+# Write a fresh complete section
+{
+    printf '\n# Appservice registrations (bridges and double puppet)\n'
+    printf 'app_service_config_files:\n'
+    printf '  - /appservices/doublepuppet.yaml\n'
+    [ "$SKIP_TELEGRAM" = "false" ] && printf '  - /bridges/telegram/config/registration.yaml\n' || true
+    printf '  - /bridges/whatsapp/config/registration.yaml\n'
+    printf '  - /bridges/signal/config/registration.yaml\n'
+} | sudo tee -a synapse/data/homeserver.yaml > /dev/null
 
 echo "✓ Appservice registrations added to homeserver.yaml"
 
-# Restart Synapse
-docker compose restart synapse && sleep 10
+# -----------------------------------------------------------------------
+# Restart Synapse to load registrations, then start bridges
+# -----------------------------------------------------------------------
+echo "Restarting Synapse..."
+docker compose restart synapse
+sleep 20
 
-# Start bridges
 echo "Starting bridges..."
-docker compose up -d mautrix-telegram mautrix-whatsapp mautrix-signal
+if [ "$SKIP_TELEGRAM" = "false" ]; then
+    docker compose up -d mautrix-telegram mautrix-whatsapp mautrix-signal
+else
+    docker compose up -d mautrix-whatsapp mautrix-signal
+fi
 sleep 15
 
 echo ""
-echo "=== Bridge setup complete with double puppet! ==="
+echo "=== Bridge setup complete! ==="
 echo ""
-echo "✓ Double puppet appservice created and registered"
-echo "✓ All bridges configured with encryption disabled (MAS compatibility)"
+echo "✓ Double puppet appservice: url=null (no Synapse transaction retries)"
+echo "✓ All bridges configured with encryption disabled (MAS/MSC4190 incompatibility)"
 echo "✓ All bridges configured with double puppet support"
 echo ""
-echo "IMPORTANT: Ensure appservices directory is mounted in Synapse container!"
-echo "Add to docker-compose.yml under synapse.volumes:"
-echo "  - ./appservices:/appservices:ro"
-echo ""
 echo "Bridge status:"
-docker compose ps | grep bridge
+docker compose ps | grep -E "bridge|signal|whatsapp|telegram"
+echo ""
+echo "Next steps:"
+echo "  1. Check bridge logs: docker compose logs mautrix-whatsapp"
+echo "  2. Invite bridge bots to a room and link your accounts"
+echo "  3. Use unencrypted rooms for bridged messages"
 echo ""
 echo "To clear portal database and force room recreation (optional):"
 echo "  docker exec matrix-postgres psql -U synapse -d whatsapp -c \"DELETE FROM portal;\""
